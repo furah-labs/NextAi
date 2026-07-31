@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeXT AI - Workspace Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="chat-layout">
+
+  <nav class="navbar">
+    <div class="logo">NeXT AI</div>
+    <a href="index.html" class="btn-logout">Déconnexion</a>
+  </nav>
+
+  <main class="chat-container" id="chatBox">
+    <div class="message ai-message">
+      <div class="content">Bonjour ! Que souhaite-tu faire aujourd'hui ? Générer du texte, une image ou écouter une réponse ?</div>
+      <button class="btn-tts" onclick="speakText('Bonjour ! Que souhaite-tu faire aujourd\'hui ?')">🔊 Écouter</button>
+    </div>
+  </main>
+
+  <audio id="audioPlayer" hidden></audio>
+
+  <footer class="input-area">
+    <select id="modeSelect" class="mode-select">
+      <option value="chat">💬 Texte</option>
+      <option value="image">🎨 Image (DALL-E 3)</option>
+    </select>
+    <input type="text" id="userInput" placeholder="Écris ton message..." required>
+    <button id="sendBtn" class="btn btn-primary">Envoyer</button>
+  </footer>
+
+  <script>
+    const chatBox = document.getElementById('chatBox');
+    const userInput = document.getElementById('userInput');
+    const modeSelect = document.getElementById('modeSelect');
+    const sendBtn = document.getElementById('sendBtn');
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    sendBtn.addEventListener('click', handleSend);
+
+    async function handleSend() {
+      const text = userInput.value.trim();
+      if (!text) return;
+
+      appendMessage(text, 'user');
+      userInput.value = '';
+
+      const mode = modeSelect.value;
+
+      if (mode === 'image') {
+        appendLoadingMessage('Génération de l'image...');
+        try {
+          const res = await fetch(`/generate-image?prompt=${encodeURIComponent(text)}`, { method: 'POST' });
+          const data = await res.json();
+          removeLoadingMessage();
+          appendImageMessage(data.image_url);
+        } catch (e) {
+          removeLoadingMessage();
+          appendMessage("Erreur lors de la génération d'image.", 'ai');
+        }
+      } else {
+        // Mode Texte standard
+        appendMessage("Ceci est une réponse simulée de NeXT AI.", 'ai');
+      }
+    }
+
+    function appendMessage(text, sender) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `message ${sender}-message`;
+      
+      let html = `<div class="content">${text}</div>`;
+      if (sender === 'ai') {
+        html += `<button class="btn-tts" onclick="speakText('${text.replace(/'/g, "\\'")}')">🔊 Écouter</button>`;
+      }
+      msgDiv.innerHTML = html;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function appendImageMessage(url) {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'message ai-message';
+      msgDiv.innerHTML = `<div class="content"><img src="${url}" class="generated-img" alt="IA Image"/></div>`;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function appendLoadingMessage(msg) {
+      const loader = document.createElement('div');
+      loader.id = 'temp-loader';
+      loader.className = 'message ai-message';
+      loader.innerText = msg;
+      chatBox.appendChild(loader);
+    }
+
+    function removeLoadingMessage() {
+      const loader = document.getElementById('temp-loader');
+      if (loader) loader.remove();
+    }
+
+    async function speakText(text) {
+      try {
+        const response = await fetch(`/text-to-speech?text=${encodeURIComponent(text)}`, { method: 'POST' });
+        const blob = await response.blob();
+        audioPlayer.src = URL.createObjectURL(blob);
+        audioPlayer.play();
+      } catch (e) {
+        console.error("Erreur TTS:", e);
+      }
+    }
+  </script>
+</body>
+</html>
